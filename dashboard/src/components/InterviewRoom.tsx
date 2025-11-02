@@ -75,10 +75,10 @@ export function InterviewRoom({ interviewId, onEndInterview }: InterviewRoomProp
     }
   }, [localStream]);
 
-  const handleEndInterview = async () => {
-    await leaveMeeting();
-    onEndInterview();
-  };
+  // const handleEndInterview = async () => {
+  //   await leaveMeeting();
+  //   onEndInterview();
+  // };
 
   // if (!hasPermissions) {
   //   return (

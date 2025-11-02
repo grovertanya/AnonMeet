@@ -19,6 +19,7 @@ export default function App() {
   const [currentRole, setCurrentRole] = useState<Role>('interviewee');
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [currentInterviewId, setCurrentInterviewId] = useState<string | null>(null);
+  const [backendStatus, setBackendStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
 
   // Interview data stored in state
   const [mockInterviews, setMockInterviews] = useState([
@@ -96,13 +97,48 @@ export default function App() {
     localStorage.setItem('interviews', JSON.stringify(mockInterviews));
   }, [mockInterviews]);
 
-  // Handlers
-  const handleJoinInterview = (interviewId: string) => {
-    setCurrentInterviewId(interviewId);
-    setCurrentPage('interview');
+
+  useEffect(() => {
+    checkBackendConnection();
+  }, []);
+
+  const checkBackendConnection = async () => {
+    try {
+      const response = await httpClient.get('/health');
+      if (response.data.status === 'ok') {
+        setBackendStatus('connected');        setBackendStatus('connected');
+        toast.success('Connected to server');
+      }
+    } catch (error) {
+      setBackendStatus('disconnected');      setBackendStatus('disconnected');
+      toast.error('Failed to connect to server. Check if backend is running.');
+      console.error('Backend connection error:', error);
+    }
   };
 
-  const handleEndInterview = async () => {
+  // Handlers
+  const handleJoinInterview = async (interviewId: string) => {
+    if (backendStatus === 'disconnected') {
+      toast.error('Cannot join meeting. Server is not available.');
+      return;
+    }
+
+    try {
+      // Create or join meeting on backend
+      await httpClient.post(`/meetings/${interviewId}/join`, {
+        participantId: `user-${Date.now()}`,
+        name: currentRole === 'interviewer' ? 'Interviewer' : 'Candidate',
+      });
+
+      setCurrentInterviewId(interviewId);      setCurrentInterviewId(interviewId);
+      setCurrentPage('interview');
+    } catch (error: any) {
+      console.error('Failed to join meeting:', error);
+      toast.error('Failed to join meeting. Please try again.');
+    }
+  };
+
+  const handleEndInterview = async (interviewId: string) => {
     if (currentInterviewId) {
       try {
         await httpClient.post(`/meetings/${currentInterviewId}/leave`, {
@@ -112,6 +148,13 @@ export default function App() {
         console.error('Failed to leave meeting:', error);
       }
     }
+
+    setMockInterviews((prev) =>
+      prev.map((int) =>
+        int.id === interviewId ? { ...int, status: 'completed', score: 0 } : int
+      )
+    );
+
     setCurrentInterviewId(null);
     setCurrentPage('dashboard');
   };
