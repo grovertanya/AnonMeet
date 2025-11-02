@@ -25,18 +25,24 @@ export function InterviewerDashboard({
   const [activeView, setActiveView] = useState<'all' | 'scheduled' | 'completed'>('all');
   const [interviews, setInterviews] = useState<Interview[]>([]);
 
-  //  Load shared interviews from localStorage
+  // ✅ Load interviews from localStorage (shared across roles)
   useEffect(() => {
-    const stored = localStorage.getItem('interviews');
-    if (stored) {
-      try {
-        setInterviews(JSON.parse(stored));
-      } catch {
-        console.warn('⚠️ Failed to parse stored interviews');
+    try {
+      const stored = localStorage.getItem('interviews');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setInterviews(parsed);
+        } else {
+          console.warn('Invalid interview data in localStorage');
+        }
       }
+    } catch (err) {
+      console.error('Failed to parse interviews:', err);
     }
   }, []);
 
+  // ✅ Derive subsets
   const scheduledInterviews = interviews.filter((i) => i.status === 'scheduled');
   const completedInterviews = interviews.filter((i) => i.status === 'completed');
   const pendingFeedback = completedInterviews.filter((i) => !i.feedbackSubmitted);
@@ -62,7 +68,7 @@ export function InterviewerDashboard({
             </div>
           </div>
 
-          {/* Pending Feedback Alert */}
+          {/* Alert for pending feedback */}
           {pendingFeedback.length > 0 && (
             <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
@@ -74,10 +80,10 @@ export function InterviewerDashboard({
 
           {/* Filter Tabs */}
           <div className="flex gap-2 border-b">
-            {['all', 'scheduled', 'completed'].map((tab) => (
+            {(['all', 'scheduled', 'completed'] as const).map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveView(tab as 'all' | 'scheduled' | 'completed')}
+                onClick={() => setActiveView(tab)}
                 className={`px-4 py-2 border-b-2 transition-all flex items-center gap-2 text-sm ${
                   activeView === tab
                     ? 'border-blue-600 text-blue-600'
@@ -89,7 +95,9 @@ export function InterviewerDashboard({
                 {tab === 'all' && <span>All</span>}
                 {tab !== 'all' && (
                   <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs">
-                    {tab === 'scheduled' ? scheduledInterviews.length : completedInterviews.length}
+                    {tab === 'scheduled'
+                      ? scheduledInterviews.length
+                      : completedInterviews.length}
                   </span>
                 )}
               </button>
@@ -111,7 +119,7 @@ export function InterviewerDashboard({
                   }`}
                 >
                   <div className="flex items-start gap-4">
-                    {/* Status Icon */}
+                    {/* Status Indicator */}
                     <div className="pt-1">
                       {interview.status === 'completed' && interview.feedbackSubmitted ? (
                         <CheckCircle2 className="w-5 h-5 text-green-600" />
@@ -122,13 +130,11 @@ export function InterviewerDashboard({
                       )}
                     </div>
 
-                    {/* Main Card */}
+                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-4 mb-2">
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-base mb-1 text-gray-900">
-                            {interview.candidateName}
-                          </h3>
+                          <h3 className="text-base mb-1 text-gray-900">{interview.candidateName}</h3>
                           <p className="text-sm text-gray-600 mb-1">{interview.position}</p>
                           {interview.status === 'completed' && !interview.feedbackSubmitted && (
                             <span className="inline-block px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs">
@@ -149,7 +155,7 @@ export function InterviewerDashboard({
                         </div>
                       </div>
 
-                      {/* Action Buttons */}
+                      {/* Actions */}
                       <div className="flex gap-2 flex-wrap">
                         {interview.status === 'scheduled' && (
                           <button
@@ -177,7 +183,7 @@ export function InterviewerDashboard({
                                 : 'Provide Feedback'}
                             </button>
 
-                            {/* ✅ View Report Button (shared for all roles) */}
+                            {/* ✅ Shared “View Report” button */}
                             <button
                               onClick={() => onViewReport(interview.id)}
                               className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-all text-sm"

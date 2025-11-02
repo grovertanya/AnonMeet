@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { InterviewRoom } from './components/InterviewRoom';
@@ -21,7 +21,29 @@ export default function App() {
   const [currentInterviewId, setCurrentInterviewId] = useState<string | null>(null);
   const [backendStatus, setBackendStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
 
-  // Interview data stored in state
+  // ✅ Check backend connection once on load
+  const checkBackendConnection = async () => {
+    try {
+      const response = await httpClient.get('/health');
+      if (response.status === 200 || response.data?.status === 'ok') {
+        setBackendStatus('connected');
+        toast.success('✅ Connected to backend server');
+      } else {
+        setBackendStatus('disconnected');
+        toast.error('⚠️ Backend responded unexpectedly');
+      }
+    } catch (error) {
+      setBackendStatus('disconnected');
+      toast.error('🚨 Backend server not reachable');
+      console.error('Backend connection error:', error);
+    }
+  };
+
+  useEffect(() => {
+    checkBackendConnection();
+  }, []);
+
+  // ✅ Mock interview data
   const [mockInterviews, setMockInterviews] = useState([
     {
       id: '1',
@@ -70,83 +92,40 @@ export default function App() {
       score: 92,
       interviewerName: 'Michael Chen',
     },
-    {
-      id: '6',
-      candidateName: 'Thomas Martinez',
-      position: 'DevOps Engineer',
-      date: 'Oct 27, 2025',
-      time: '10:00 AM - 11:00 AM',
-      status: 'completed' as const,
-      score: 78,
-      interviewerName: 'Emily Rodriguez',
-    },
-    {
-      id: '7',
-      candidateName: 'Amanda White',
-      position: 'Marketing Manager',
-      date: 'Oct 26, 2025',
-      time: '2:00 PM - 3:00 PM',
-      status: 'completed' as const,
-      score: 88,
-      interviewerName: 'David Kim',
-    },
   ]);
 
-  // ✅ Add this right after mockInterviews declaration
   useEffect(() => {
     localStorage.setItem('interviews', JSON.stringify(mockInterviews));
   }, [mockInterviews]);
 
-
-  useEffect(() => {
-    checkBackendConnection();
-  }, []);
-
-  const checkBackendConnection = async () => {
-    try {
-      const response = await httpClient.get('/health');
-      if (response.data.status === 'ok') {
-        setBackendStatus('connected');        setBackendStatus('connected');
-        toast.success('Connected to server');
-      }
-    } catch (error) {
-      setBackendStatus('disconnected');      setBackendStatus('disconnected');
-      toast.error('Failed to connect to server. Check if backend is running.');
-      console.error('Backend connection error:', error);
-    }
-  };
-
-  // Handlers
+  // ✅ Handlers
   const handleJoinInterview = async (interviewId: string) => {
     if (backendStatus === 'disconnected') {
-      toast.error('Cannot join meeting. Server is not available.');
+      toast.error('Cannot join meeting — server not available.');
       return;
     }
 
     try {
-      // Create or join meeting on backend
       await httpClient.post(`/meetings/${interviewId}/join`, {
         participantId: `user-${Date.now()}`,
         name: currentRole === 'interviewer' ? 'Interviewer' : 'Candidate',
       });
 
-      setCurrentInterviewId(interviewId);      setCurrentInterviewId(interviewId);
+      setCurrentInterviewId(interviewId);
       setCurrentPage('interview');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to join meeting:', error);
       toast.error('Failed to join meeting. Please try again.');
     }
   };
 
   const handleEndInterview = async (interviewId: string) => {
-    if (currentInterviewId) {
-      try {
-        await httpClient.post(`/meetings/${currentInterviewId}/leave`, {
-          participantId: `user-${Date.now()}`,
-        });
-      } catch (error) {
-        console.error('Failed to leave meeting:', error);
-      }
+    try {
+      await httpClient.post(`/meetings/${interviewId}/leave`, {
+        participantId: `user-${Date.now()}`,
+      });
+    } catch (error) {
+      console.error('Failed to leave meeting:', error);
     }
 
     setMockInterviews((prev) =>
@@ -180,28 +159,23 @@ export default function App() {
     setCurrentInterviewId(null);
   };
 
-  const getCurrentInterview = () => {
-    return mockInterviews.find((i) => i.id === currentInterviewId);
-  };
+  const getCurrentInterview = () => mockInterviews.find((i) => i.id === currentInterviewId);
 
-  // Render
+  // ✅ Render
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster />
-      
-      {/* Backend Status Indicator */}
-      {backendStatus === 'disconnected' && currentPage !== 'interview' && (
+
+      {/* Backend Status Banner */}
+      {backendStatus === 'disconnected' && (
         <div className="bg-red-600 text-white px-4 py-2 text-center text-sm">
-          ⚠️ Server disconnected. Please start the backend server.
-          <button
-            onClick={checkBackendConnection}
-            className="ml-4 underline hover:no-underline"
-          >
+          Server disconnected. Please start the backend.
+          <button onClick={checkBackendConnection} className="ml-4 underline hover:no-underline">
             Retry
           </button>
         </div>
       )}
-      
+
       {currentPage !== 'interview' && currentPage !== 'report' && currentPage !== 'feedback' && (
         <Header
           currentPage={currentPage}
@@ -211,7 +185,7 @@ export default function App() {
         />
       )}
 
-      {/* INTERVIEWEE ROLE */}
+      {/* INTERVIEWEE */}
       {currentRole === 'interviewee' && (
         <>
           {currentPage === 'dashboard' && (
@@ -221,14 +195,12 @@ export default function App() {
               onViewReport={handleViewReport}
             />
           )}
-          {currentPage === 'calendar' && (
-            <CalendarView interviews={mockInterviews} onJoinInterview={handleJoinInterview} />
-          )}
+          {currentPage === 'calendar' && <CalendarView interviews={mockInterviews} onJoinInterview={handleJoinInterview} />}
           {currentPage === 'profile' && <Profile />}
         </>
       )}
 
-      {/* INTERVIEWER ROLE */}
+      {/* INTERVIEWER */}
       {currentRole === 'interviewer' && (
         <>
           {currentPage === 'dashboard' && (
@@ -238,9 +210,7 @@ export default function App() {
               onViewReport={handleViewReport}
             />
           )}
-          {currentPage === 'calendar' && (
-            <CalendarView interviews={mockInterviews} onJoinInterview={handleJoinInterview} />
-          )}
+          {currentPage === 'calendar' && <CalendarView interviews={mockInterviews} onJoinInterview={handleJoinInterview} />}
           {currentPage === 'feedback' && currentInterviewId && (() => {
             const interview = getCurrentInterview();
             return interview ? (
@@ -255,22 +225,17 @@ export default function App() {
         </>
       )}
 
-      {/* HR ROLE */}
+      {/* HR */}
       {currentRole === 'hr' && (
         <>
           {currentPage === 'dashboard' && <HRDashboard onViewReport={handleViewReport} />}
-          {currentPage === 'calendar' && (
-            <CalendarView interviews={mockInterviews} onJoinInterview={handleJoinInterview} />
-          )}
+          {currentPage === 'calendar' && <CalendarView interviews={mockInterviews} onJoinInterview={handleJoinInterview} />}
         </>
       )}
 
-      {/* SHARED VIEWS */}
+      {/* SHARED */}
       {currentPage === 'interview' && currentInterviewId && (
-        <InterviewRoom
-          interviewId={currentInterviewId}
-          onEndInterview={() => handleEndInterview(currentInterviewId)}
-        />
+        <InterviewRoom interviewId={currentInterviewId} onEndInterview={() => handleEndInterview(currentInterviewId)} />
       )}
 
       {currentPage === 'report' && currentInterviewId && (
