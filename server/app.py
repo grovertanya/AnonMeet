@@ -4,9 +4,8 @@ import tempfile, subprocess, os, json, whisper, imageio_ffmpeg
 from flask_cors import CORS
 from dotenv import load_dotenv
 
-# -----------------------------------------------------------
+
 # SETUP
-# -----------------------------------------------------------
 load_dotenv()
 app = Flask(__name__)
 CORS(app)
@@ -38,9 +37,7 @@ def patched_load_audio(file: str, sr: int = 16000):
 audio.load_audio = patched_load_audio  # override default
 
 
-# -----------------------------------------------------------
-# 🔍 ANALYZE ENDPOINT
-# -----------------------------------------------------------
+# ANALYZE ENDPOINT
 @app.route("/analyze", methods=["POST"])
 def analyze():
     try:
@@ -105,8 +102,6 @@ Now analyze this transcript:
         return jsonify({"error": str(e)}), 500
 
 
-# -----------------------------------------------------------
 #  RUN
-# -----------------------------------------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)

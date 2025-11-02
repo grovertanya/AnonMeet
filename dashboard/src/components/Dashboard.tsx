@@ -14,93 +14,23 @@ interface Interview {
 }
 
 interface DashboardProps {
+  interviews: Interview[];
   onJoinInterview: (id: string) => void;
   onViewReport: (id: string) => void;
 }
 
-// Mock data
-const mockInterviews: Interview[] = [
-  {
-    id: '1',
-    candidateName: 'Sarah Johnson',
-    position: 'Senior Frontend Developer',
-    date: 'Nov 2, 2025',
-    time: '10:00 AM - 11:00 AM',
-    status: 'scheduled',
-    interviewerName: 'Michael Chen',
-  },
-  {
-    id: '2',
-    candidateName: 'James Wilson',
-    position: 'Product Manager',
-    date: 'Nov 2, 2025',
-    time: '2:00 PM - 3:00 PM',
-    status: 'scheduled',
-    interviewerName: 'Emily Rodriguez',
-  },
-  {
-    id: '3',
-    candidateName: 'Maria Garcia',
-    position: 'UX Designer',
-    date: 'Nov 3, 2025',
-    time: '11:00 AM - 12:00 PM',
-    status: 'scheduled',
-    interviewerName: 'David Kim',
-  },
-  {
-    id: '4',
-    candidateName: 'Robert Brown',
-    position: 'Backend Engineer',
-    date: 'Oct 30, 2025',
-    time: '3:00 PM - 4:00 PM',
-    status: 'completed',
-    score: 85,
-    interviewerName: 'Lisa Anderson',
-  },
-  {
-    id: '5',
-    candidateName: 'Jennifer Lee',
-    position: 'Data Scientist',
-    date: 'Oct 28, 2025',
-    time: '1:00 PM - 2:00 PM',
-    status: 'completed',
-    score: 92,
-    interviewerName: 'Michael Chen',
-  },
-  {
-    id: '6',
-    candidateName: 'Thomas Martinez',
-    position: 'DevOps Engineer',
-    date: 'Oct 27, 2025',
-    time: '10:00 AM - 11:00 AM',
-    status: 'completed',
-    score: 78,
-    interviewerName: 'Emily Rodriguez',
-  },
-  {
-    id: '7',
-    candidateName: 'Amanda White',
-    position: 'Marketing Manager',
-    date: 'Oct 26, 2025',
-    time: '2:00 PM - 3:00 PM',
-    status: 'completed',
-    score: 88,
-    interviewerName: 'David Kim',
-  },
-];
-
-export function Dashboard({ onJoinInterview, onViewReport }: DashboardProps) {
+export function Dashboard({ interviews, onJoinInterview, onViewReport }: DashboardProps) {
   const [activeView, setActiveView] = useState<'all' | 'scheduled' | 'completed'>('all');
 
-  const scheduledInterviews = mockInterviews.filter(i => i.status === 'scheduled');
-  const completedInterviews = mockInterviews.filter(i => i.status === 'completed');
+  const scheduledInterviews = interviews.filter((i) => i.status === 'scheduled');
+  const completedInterviews = interviews.filter((i) => i.status === 'completed');
 
-  const displayInterviews = 
-    activeView === 'scheduled' 
-      ? scheduledInterviews 
+  const displayInterviews =
+    activeView === 'scheduled'
+      ? scheduledInterviews
       : activeView === 'completed'
       ? completedInterviews
-      : mockInterviews;
+      : interviews;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -163,16 +93,24 @@ export function Dashboard({ onJoinInterview, onViewReport }: DashboardProps) {
           </div>
         </div>
 
-        {/* Task List */}
+        {/* Interview List */}
         <div className="bg-white rounded-lg border">
           {displayInterviews.length > 0 ? (
             <div className="px-6">
-              {displayInterviews.map((interview, index) => (
+              {displayInterviews.map((interview) => (
                 <InterviewCard
                   key={interview.id}
                   {...interview}
-                  onJoin={interview.status === 'scheduled' ? () => onJoinInterview(interview.id) : undefined}
-                  onViewReport={interview.status === 'completed' ? () => onViewReport(interview.id) : undefined}
+                  onJoin={
+                    interview.status === 'scheduled'
+                      ? () => onJoinInterview(interview.id)
+                      : undefined
+                  }
+                  onViewReport={
+                    interview.status === 'completed'
+                      ? () => onViewReport(interview.id)
+                      : undefined
+                  }
                 />
               ))}
             </div>

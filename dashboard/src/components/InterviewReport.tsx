@@ -3,6 +3,23 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { BiasReport } from './BiasReport';
+import { useEffect, useState } from 'react';
+
+interface Section {
+  name: string;
+  trend?: string;
+  score?: number;
+  notes?: string;
+}
+
+interface Interview {
+  id: string;
+  candidateName: string;
+  position: string;
+  date: string;
+  time: string;
+  interviewerName: string;
+}
 
 interface InterviewReportProps {
   interviewId: string;
@@ -11,54 +28,42 @@ interface InterviewReportProps {
 }
 
 export function InterviewReport({ interviewId, onBack, showBiasReport = false }: InterviewReportProps) {
-  // Mock data - in real app this would be fetched based on interviewId
-  const report = {
-    candidateName: 'Robert Brown',
-    position: 'Backend Engineer',
-    date: 'Oct 30, 2025',
-    interviewer: 'Lisa Anderson',
-    duration: '58 minutes',
-    overallScore: 85,
-    sections: [
-      {
-        name: 'Technical Skills',
-        score: 90,
-        trend: 'up',
-        notes: 'Strong understanding of system design and architecture. Excellent problem-solving approach.',
-      },
-      {
-        name: 'Communication',
-        score: 80,
-        trend: 'neutral',
-        notes: 'Clear and concise explanations. Could improve on asking clarifying questions earlier.',
-      },
-      {
-        name: 'Problem Solving',
-        score: 88,
-        trend: 'up',
-        notes: 'Demonstrated excellent analytical thinking. Broke down complex problems effectively.',
-      },
-      {
-        name: 'Cultural Fit',
-        score: 82,
-        trend: 'neutral',
-        notes: 'Good alignment with company values. Shows enthusiasm for collaborative work.',
-      },
-    ],
-    strengths: [
-      'Deep knowledge of backend technologies and microservices architecture',
-      'Strong problem-solving skills with systematic approach',
-      'Good understanding of scalability and performance optimization',
-      'Experience with cloud platforms and DevOps practices',
-    ],
-    improvements: [
-      'Could be more proactive in asking clarifying questions',
-      'Would benefit from more frontend integration knowledge',
-      'Communication of time complexity analysis could be clearer',
-    ],
-    recommendation: 'Strong Hire',
-    nextSteps: 'Proceed to final round with engineering director',
-    interviewerComments: 'Robert demonstrated strong technical capabilities and a methodical approach to problem-solving. He has extensive experience with the technologies we use and showed genuine interest in our projects. His answers were well-structured and he handled edge cases thoughtfully. Would be a great addition to the backend team.',
+  const [interview, setInterview] = useState<Interview | null>(null);
+  const [report, setReport] = useState<any>(null);
+
+  useEffect(() => {
+    // ✅ pull mockInterviews from localStorage or window memory (set by App)
+    const storedInterviews = localStorage.getItem('interviews');
+    if (storedInterviews) {
+      const parsed = JSON.parse(storedInterviews);
+      const match = parsed.find((i: Interview) => i.id === interviewId);
+      if (match) setInterview(match);
+    }
+
+    const savedReport = localStorage.getItem(`report_${interviewId}`);
+    if (savedReport) {
+      try {
+        setReport(JSON.parse(savedReport));
+      } catch {
+        console.warn('⚠️ Failed to parse saved report');
+      }
+    }
+  }, [interviewId]);
+
+  // ✅ fallback template merged with dynamic interview data
+  const mergedReport = {
+    candidateName: interview?.candidateName ?? 'Candidate',
+    position: interview?.position ?? 'N/A',
+    interviewer: interview?.interviewerName ?? 'N/A',
+    date: interview?.date ?? new Date().toLocaleDateString(),
+    duration: report?.duration ?? 'N/A',
+    overallScore: report?.overallScore ?? 0,
+    sections: report?.sections ?? [],
+    strengths: report?.strengths ?? ['Awaiting AI report...'],
+    improvements: report?.improvements ?? [],
+    recommendation: report?.recommendation ?? 'Pending',
+    nextSteps: report?.nextSteps ?? 'Report will appear after analysis completes.',
+    interviewerComments: report?.interviewerComments ?? 'No analysis yet.',
   };
 
   const getScoreColor = (score: number) => {
@@ -73,7 +78,7 @@ export function InterviewReport({ interviewId, onBack, showBiasReport = false }:
     return 'bg-red-100';
   };
 
-  const getTrendIcon = (trend: string) => {
+  const getTrendIcon = (trend?: string) => {
     if (trend === 'up') return <TrendingUp className="w-4 h-4 text-green-600" />;
     if (trend === 'down') return <TrendingDown className="w-4 h-4 text-red-600" />;
     return <Minus className="w-4 h-4 text-gray-400" />;
@@ -92,35 +97,37 @@ export function InterviewReport({ interviewId, onBack, showBiasReport = false }:
           <div className="flex items-start justify-between mb-4">
             <div>
               <h1 className="text-2xl mb-2">Interview Report</h1>
-              <p className="text-gray-600">{report.candidateName} · {report.position}</p>
+              <p className="text-gray-600">
+                {mergedReport.candidateName} · {mergedReport.position}
+              </p>
             </div>
-            <div className={`text-4xl ${getScoreColor(report.overallScore)}`}>
-              {report.overallScore}
+            <div className={`text-4xl ${getScoreColor(mergedReport.overallScore)}`}>
+              {mergedReport.overallScore ?? 0}
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <p className="text-gray-600 mb-1">Date</p>
-              <p>{report.date}</p>
+              <p>{mergedReport.date}</p>
             </div>
             <div>
               <p className="text-gray-600 mb-1">Interviewer</p>
-              <p>{report.interviewer}</p>
+              <p>{mergedReport.interviewer}</p>
             </div>
             <div>
               <p className="text-gray-600 mb-1">Duration</p>
-              <p>{report.duration}</p>
+              <p>{mergedReport.duration}</p>
             </div>
             <div>
               <p className="text-gray-600 mb-1">Recommendation</p>
               <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm">
-                {report.recommendation}
+                {mergedReport.recommendation}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Tabs for Report Sections */}
+        {/* Tabs */}
         {showBiasReport ? (
           <Tabs defaultValue="performance" className="mb-6">
             <TabsList className="mb-6">
@@ -129,67 +136,82 @@ export function InterviewReport({ interviewId, onBack, showBiasReport = false }:
             </TabsList>
 
             <TabsContent value="performance">
-              {/* Score Breakdown */}
+              {/* Performance Breakdown */}
               <Card className="mb-6">
                 <CardHeader>
                   <CardTitle>Performance Breakdown</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {report.sections.map((section, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm">{section.name}</h4>
-                          {getTrendIcon(section.trend)}
+                  {mergedReport.sections.length > 0 ? (
+                    mergedReport.sections.map((section: Section, index: number) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm">{section.name}</h4>
+                            {getTrendIcon(section.trend)}
+                          </div>
+                          <span
+                            className={`px-3 py-1 rounded-full text-sm ${getScoreBgColor(
+                              section.score ?? 0
+                            )} ${getScoreColor(section.score ?? 0)}`}
+                          >
+                            {section.score ?? 0}
+                          </span>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-sm ${getScoreBgColor(section.score)} ${getScoreColor(section.score)}`}>
-                          {section.score}
-                        </span>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full transition-all"
+                            style={{ width: `${section.score ?? 0}%` }}
+                          />
+                        </div>
+                        <p className="text-sm text-gray-600">{section.notes ?? ''}</p>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full transition-all"
-                          style={{ width: `${section.score}%` }}
-                        />
-                      </div>
-                      <p className="text-sm text-gray-600">{section.notes}</p>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-gray-500 italic">No detailed sections available.</p>
+                  )}
                 </CardContent>
               </Card>
 
+              {/* Strengths & Improvements */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Strengths */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Strengths</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ul className="space-y-2">
-                      {report.strengths.map((strength, index) => (
-                        <li key={index} className="flex items-start gap-2 text-sm">
-                          <span className="text-green-600 mt-1">✓</span>
-                          <span className="text-gray-700">{strength}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    {mergedReport.strengths.length > 0 ? (
+                      <ul className="space-y-2">
+                        {mergedReport.strengths.map((s: string, i: number) => (
+                          <li key={i} className="flex items-start gap-2 text-sm">
+                            <span className="text-green-600 mt-1">✓</span>
+                            <span className="text-gray-700">{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-gray-500 italic">No strengths listed.</p>
+                    )}
                   </CardContent>
                 </Card>
 
-                {/* Areas for Improvement */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Areas for Improvement</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ul className="space-y-2">
-                      {report.improvements.map((improvement, index) => (
-                        <li key={index} className="flex items-start gap-2 text-sm">
-                          <span className="text-yellow-600 mt-1">!</span>
-                          <span className="text-gray-700">{improvement}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    {mergedReport.improvements.length > 0 ? (
+                      <ul className="space-y-2">
+                        {mergedReport.improvements.map((i: string, idx: number) => (
+                          <li key={idx} className="flex items-start gap-2 text-sm">
+                            <span className="text-yellow-600 mt-1">!</span>
+                            <span className="text-gray-700">{i}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-gray-500 italic">No improvement areas found.</p>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -200,7 +222,9 @@ export function InterviewReport({ interviewId, onBack, showBiasReport = false }:
                   <CardTitle>Interviewer Comments</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-700 leading-relaxed">{report.interviewerComments}</p>
+                  <p className="text-gray-700 leading-relaxed">
+                    {mergedReport.interviewerComments}
+                  </p>
                 </CardContent>
               </Card>
 
@@ -210,7 +234,7 @@ export function InterviewReport({ interviewId, onBack, showBiasReport = false }:
                   <CardTitle>Next Steps</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-700">{report.nextSteps}</p>
+                  <p className="text-gray-700">{mergedReport.nextSteps}</p>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -221,92 +245,40 @@ export function InterviewReport({ interviewId, onBack, showBiasReport = false }:
           </Tabs>
         ) : (
           <>
-            {/* Score Breakdown */}
+            {/* Fallback if no Bias tab */}
             <Card className="mb-6">
               <CardHeader>
                 <CardTitle>Performance Breakdown</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {report.sections.map((section, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm">{section.name}</h4>
-                        {getTrendIcon(section.trend)}
+                {mergedReport.sections.length > 0 ? (
+                  mergedReport.sections.map((section: Section, index: number) => (
+                    <div key={index} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm">{section.name}</h4>
+                          {getTrendIcon(section.trend)}
+                        </div>
+                        <span
+                          className={`px-3 py-1 rounded-full text-sm ${getScoreBgColor(
+                            section.score ?? 0
+                          )} ${getScoreColor(section.score ?? 0)}`}
+                        >
+                          {section.score ?? 0}
+                        </span>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-sm ${getScoreBgColor(section.score)} ${getScoreColor(section.score)}`}>
-                        {section.score}
-                      </span>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all"
+                          style={{ width: `${section.score ?? 0}%` }}
+                        />
+                      </div>
+                      <p className="text-sm text-gray-600">{section.notes ?? ''}</p>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full transition-all"
-                        style={{ width: `${section.score}%` }}
-                      />
-                    </div>
-                    <p className="text-sm text-gray-600">{section.notes}</p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </>
-        )}
-
-        {!showBiasReport && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {/* Strengths */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Strengths</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {report.strengths.map((strength, index) => (
-                      <li key={index} className="flex items-start gap-2 text-sm">
-                        <span className="text-green-600 mt-1">✓</span>
-                        <span className="text-gray-700">{strength}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-
-              {/* Areas for Improvement */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Areas for Improvement</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {report.improvements.map((improvement, index) => (
-                      <li key={index} className="flex items-start gap-2 text-sm">
-                        <span className="text-yellow-600 mt-1">!</span>
-                        <span className="text-gray-700">{improvement}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Interviewer Comments */}
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Interviewer Comments</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-700 leading-relaxed">{report.interviewerComments}</p>
-              </CardContent>
-            </Card>
-
-            {/* Next Steps */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Next Steps</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-700">{report.nextSteps}</p>
+                  ))
+                ) : (
+                  <p className="text-gray-500 italic">No performance data yet.</p>
+                )}
               </CardContent>
             </Card>
           </>

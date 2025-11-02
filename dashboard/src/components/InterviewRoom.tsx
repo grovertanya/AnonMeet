@@ -9,9 +9,10 @@ import {
   MessageSquare,
   FileText,
 } from 'lucide-react';
-import { Card, CardContent } from './ui/card';
+import { Card } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Textarea } from './ui/textarea';
+import { toast } from 'sonner';
 
 interface InterviewRoomProps {
   interviewId: string;
@@ -28,32 +29,43 @@ export function InterviewRoom({ interviewId, onEndInterview }: InterviewRoomProp
   const [currentMessage, setCurrentMessage] = useState('');
   const [duration, setDuration] = useState(0);
   const [cameraError, setCameraError] = useState(false);
+
+  // Recording state
+  const [recording, setRecording] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunks = useRef<BlobPart[]>([]);
 
   // Timer for interview duration
   useEffect(() => {
     const interval = setInterval(() => {
       setDuration((prev) => prev + 1);
     }, 1000);
-
     return () => clearInterval(interval);
   }, []);
 
-  // Initialize camera - handle gracefully if permission denied
+  // Initialize camera + start recording
   useEffect(() => {
     if (!isVideoOff) {
-      // Check if mediaDevices is available
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices
           .getUserMedia({ video: true, audio: true })
           .then((stream) => {
+            // Show video preview
             if (videoRef.current) {
               videoRef.current.srcObject = stream;
               setCameraError(false);
             }
+
+            // Start audio recording
+            const recorder = new MediaRecorder(stream);
+            recorder.ondataavailable = (e) => recordedChunks.current.push(e.data);
+            recorder.start();
+            mediaRecorderRef.current = recorder;
+            setRecording(true);
           })
           .catch((err) => {
-            // Handle permission denied or camera unavailable gracefully
             console.log('Camera not available:', err.name);
             setCameraError(true);
           });
@@ -81,6 +93,58 @@ export function InterviewRoom({ interviewId, onEndInterview }: InterviewRoomProp
       setChatMessages([...chatMessages, { sender: 'You', message: currentMessage }]);
       setCurrentMessage('');
     }
+  };
+
+  // Stop recording and send to backend
+  const handleEndInterview = async () => {
+    if (!mediaRecorderRef.current) {
+      onEndInterview();
+      return;
+    }
+
+    setUploading(true);
+    mediaRecorderRef.current.stop();
+
+    mediaRecorderRef.current.onstop = async () => {
+      const blob = new Blob(recordedChunks.current, { type: 'audio/mp4' });
+      const formData = new FormData();
+      formData.append('file', blob, `${interviewId}.mp4`);
+
+      toast.info('Uploading interview for AI analysis...');
+
+      try {
+        const res = await fetch('http://127.0.0.1:5001/analyze', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      let text = data.result;
+
+      // Clean markdown wrappers like ```json ... ```
+      if (typeof text === 'string') {
+        text = text.replace(/```json|```/g, '').trim();
+        try {
+          text = JSON.parse(text);
+        } catch {
+          console.warn('Could not parse Gemini JSON, saving raw text instead');
+        }
+      }
+
+      // Save to localStorage
+      localStorage.setItem(`report_${interviewId}`, JSON.stringify(text));
+
+      console.log('✅ Clean Bias Analysis:', text);
+
+
+      } catch (err) {
+        console.error('Upload failed', err);
+        toast.error('Failed to analyze interview. Please try again.');
+      } finally {
+        setUploading(false);
+        onEndInterview();
+      }
+    };
   };
 
   return (
@@ -115,7 +179,7 @@ export function InterviewRoom({ interviewId, onEndInterview }: InterviewRoomProp
             </div>
           </div>
 
-          {/* Candidate Video (smaller) */}
+          {/* Candidate Video */}
           <div className="relative bg-gray-800 rounded-lg overflow-hidden aspect-video">
             {!isVideoOff && !cameraError ? (
               <video
@@ -159,6 +223,7 @@ export function InterviewRoom({ interviewId, onEndInterview }: InterviewRoomProp
                 </TabsTrigger>
               </TabsList>
 
+              {/* Notes */}
               <TabsContent value="notes" className="flex-1 flex flex-col p-4">
                 <h3 className="mb-2">Interview Notes</h3>
                 <Textarea
@@ -169,6 +234,7 @@ export function InterviewRoom({ interviewId, onEndInterview }: InterviewRoomProp
                 />
               </TabsContent>
 
+              {/* Chat */}
               <TabsContent value="chat" className="flex-1 flex flex-col p-4">
                 <div className="flex-1 overflow-y-auto mb-4 space-y-2">
                   {chatMessages.map((msg, idx) => (
@@ -225,11 +291,12 @@ export function InterviewRoom({ interviewId, onEndInterview }: InterviewRoomProp
         <Button
           variant="destructive"
           size="lg"
-          onClick={onEndInterview}
+          onClick={handleEndInterview}
           className="rounded-full px-6"
+          disabled={uploading}
         >
           <Phone className="w-5 h-5 mr-2" />
-          End Interview
+          {uploading ? 'Analyzing...' : 'End Interview'}
         </Button>
       </div>
     </div>
