@@ -5,7 +5,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 
 # -----------------------------------------------------------
-# 🔧 SETUP
+# SETUP
 # -----------------------------------------------------------
 load_dotenv()
 app = Flask(__name__)
@@ -106,7 +106,7 @@ Now analyze this transcript:
 
 
 # -----------------------------------------------------------
-# 🚀 RUN
+#  RUN
 # -----------------------------------------------------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
