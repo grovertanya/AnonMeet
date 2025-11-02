@@ -168,13 +168,19 @@ export default function App() {
 
       {/* Backend Status Banner */}
       {backendStatus === 'disconnected' && (
+
+      {/* Backend Status Banner */}
+      {backendStatus === 'disconnected' && (
         <div className="bg-red-600 text-white px-4 py-2 text-center text-sm">
+          Server disconnected. Please start the backend.
+          <button onClick={checkBackendConnection} className="ml-4 underline hover:no-underline">
           Server disconnected. Please start the backend.
           <button onClick={checkBackendConnection} className="ml-4 underline hover:no-underline">
             Retry
           </button>
         </div>
       )}
+
 
       {currentPage !== 'interview' && currentPage !== 'report' && currentPage !== 'feedback' && (
         <Header
@@ -196,6 +202,7 @@ export default function App() {
             />
           )}
           {currentPage === 'calendar' && <CalendarView interviews={mockInterviews} onJoinInterview={handleJoinInterview} />}
+          {currentPage === 'calendar' && <CalendarView interviews={mockInterviews} onJoinInterview={handleJoinInterview} />}
           {currentPage === 'profile' && <Profile />}
         </>
       )}
@@ -210,6 +217,7 @@ export default function App() {
               onViewReport={handleViewReport}
             />
           )}
+          {currentPage === 'calendar' && <CalendarView interviews={mockInterviews} onJoinInterview={handleJoinInterview} />}
           {currentPage === 'calendar' && <CalendarView interviews={mockInterviews} onJoinInterview={handleJoinInterview} />}
           {currentPage === 'feedback' && currentInterviewId && (() => {
             const interview = getCurrentInterview();
@@ -230,6 +238,7 @@ export default function App() {
         <>
           {currentPage === 'dashboard' && <HRDashboard onViewReport={handleViewReport} />}
           {currentPage === 'calendar' && <CalendarView interviews={mockInterviews} onJoinInterview={handleJoinInterview} />}
+          {currentPage === 'calendar' && <CalendarView interviews={mockInterviews} onJoinInterview={handleJoinInterview} />}
         </>
       )}
 
@@ -248,3 +257,4 @@ export default function App() {
     </div>
   );
 }
+
