@@ -1,17 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
-import { Button } from './ui/button';
-import {
-  Mic,
-  MicOff,
-  Video,
-  VideoOff,
-  Phone,
-  MessageSquare,
-  FileText,
-} from 'lucide-react';
+// components/InterviewRoom.tsx
+import { useEffect, useRef, useState } from 'react';
+import { Video, VideoOff, Mic, MicOff, Monitor, PhoneOff, Settings } from 'lucide-react';
+import { useMeeting } from '../hooks/useMeeting';
+import { useMediaDevices } from '../hooks/useMediaDevices';
 import { Card, CardContent } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Textarea } from './ui/textarea';
+import { Button } from './ui/button';
+import { Phone } from 'lucide-react';
+import { FileText, MessageSquare } from 'lucide-react';
 
 interface InterviewRoomProps {
   interviewId: string;
@@ -19,6 +16,8 @@ interface InterviewRoomProps {
 }
 
 export function InterviewRoom({ interviewId, onEndInterview }: InterviewRoomProps) {
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [notes, setNotes] = useState('');
@@ -30,7 +29,296 @@ export function InterviewRoom({ interviewId, onEndInterview }: InterviewRoomProp
   const [cameraError, setCameraError] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  
+  const {
+    localStream,
+    participants,
+    isConnected,
+    isAudioEnabled,
+    isVideoEnabled,
+    isScreenSharing,
+    error,
+    joinMeeting,
+    leaveMeeting,
+    toggleAudio,
+    toggleVideo,
+    toggleScreenShare,
+  } = useMeeting({ meetingId: interviewId });
+
+  const {
+    audioInputs,
+    videoInputs,
+    selectedAudioInput,
+    selectedVideoInput,
+    setSelectedAudioInput,
+    setSelectedVideoInput,
+    hasPermissions,
+    requestPermissions,
+  } = useMediaDevices();
+
+  // Join meeting on mount
+  useEffect(() => {
+    joinMeeting();
+  }, [joinMeeting]);
+
+  // Display local stream
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
+
+  const handleEndInterview = async () => {
+    await leaveMeeting();
+    onEndInterview();
+  };
+
+  // if (!hasPermissions) {
+  //   return (
+  //     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+  //       <div className="bg-white rounded-lg p-8 max-w-md text-center">
+  //         <h2 className="text-2xl font-bold mb-4">Camera & Microphone Access Required</h2>
+  //         <p className="text-gray-600 mb-6">
+  //           Please allow access to your camera and microphone to join the interview.
+  //         </p>
+  //         <button
+  //           onClick={requestPermissions}
+  //           className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
+  //         >
+  //           Grant Permissions
+  //         </button>
+  //       </div>
+  //     </div>
+  //   );
+  // }
+
+  // if (error) {
+  //   return (
+  //     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+  //       <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-lg">
+  //         <p className="font-bold">Error</p>
+  //         <p>{error}</p>
+  //         <button
+  //           onClick={onEndInterview}
+  //           className="mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+  //         >
+  //           Go Back
+  //         </button>
+  //       </div>
+  //     </div>
+  //   );
+  // }
+
+  // return (
+//     <div className="min-h-screen bg-gray-900">
+//       {/* Video Grid */}
+//       <div className="h-screen p-4">
+//         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-[calc(100vh-180px)]">
+//           {/* Local Video */}
+//           <div className="relative bg-gray-800 rounded-lg overflow-hidden">
+//             <video
+//               ref={localVideoRef}
+//               autoPlay
+//               muted
+//               playsInline
+//               className="w-full h-full object-cover"
+//             />
+//             <div className="absolute bottom-4 left-4 bg-black/50 text-white px-3 py-1 rounded">
+//               You {!isVideoEnabled && '(Video Off)'}
+//             </div>
+//             {!isVideoEnabled && (
+//               <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+//                 <div className="w-24 h-24 bg-gray-600 rounded-full flex items-center justify-center">
+//                   <span className="text-3xl text-white">👤</span>
+//                 </div>
+//               </div>
+//             )}
+//           </div>
+
+//           {/* Remote Videos */}
+//           {Array.from(participants.values()).map((participant) => (
+//             <RemoteVideo
+//               key={participant.id}
+//               participant={participant}
+//             />
+//           ))}
+
+//           {/* Waiting message if no participants */}
+//           {participants.size === 0 && (
+//             <div className="bg-gray-800 rounded-lg flex items-center justify-center">
+//               <div className="text-center text-gray-400">
+//                 <p className="text-xl">Waiting for others to join...</p>
+//                 <p className="text-sm mt-2">Meeting ID: {interviewId}</p>
+//               </div>
+//             </div>
+//           )}
+//         </div>
+
+//         {/* Controls */}
+//         <div className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 p-4">
+//           <div className="max-w-4xl mx-auto flex items-center justify-center gap-4">
+//             {/* Microphone */}
+//             <button
+//               onClick={toggleAudio}
+//               className={`p-4 rounded-full transition ${
+//                 isAudioEnabled
+//                   ? 'bg-gray-700 hover:bg-gray-600'
+//                   : 'bg-red-600 hover:bg-red-700'
+//               }`}
+//               title={isAudioEnabled ? 'Mute' : 'Unmute'}
+//             >
+//               {isAudioEnabled ? (
+//                 <Mic className="w-6 h-6 text-white" />
+//               ) : (
+//                 <MicOff className="w-6 h-6 text-white" />
+//               )}
+//             </button>
+
+//             {/* Camera */}
+//             <button
+//               onClick={toggleVideo}
+//               className={`p-4 rounded-full transition ${
+//                 isVideoEnabled
+//                   ? 'bg-gray-700 hover:bg-gray-600'
+//                   : 'bg-red-600 hover:bg-red-700'
+//               }`}
+//               title={isVideoEnabled ? 'Turn off camera' : 'Turn on camera'}
+//             >
+//               {isVideoEnabled ? (
+//                 <Video className="w-6 h-6 text-white" />
+//               ) : (
+//                 <VideoOff className="w-6 h-6 text-white" />
+//               )}
+//             </button>
+
+//             {/* Screen Share */}
+//             <button
+//               onClick={toggleScreenShare}
+//               className={`p-4 rounded-full transition ${
+//                 isScreenSharing
+//                   ? 'bg-blue-600 hover:bg-blue-700'
+//                   : 'bg-gray-700 hover:bg-gray-600'
+//               }`}
+//               title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
+//             >
+//               <Monitor className="w-6 h-6 text-white" />
+//             </button>
+
+//             {/* Settings */}
+//             <button
+//               onClick={() => setShowSettings(!showSettings)}
+//               className="p-4 rounded-full bg-gray-700 hover:bg-gray-600 transition"
+//               title="Settings"
+//             >
+//               <Settings className="w-6 h-6 text-white" />
+//             </button>
+
+//             {/* End Call */}
+//             <button
+//               onClick={handleEndInterview}
+//               className="p-4 rounded-full bg-red-600 hover:bg-red-700 transition ml-4"
+//               title="End interview"
+//             >
+//               <PhoneOff className="w-6 h-6 text-white" />
+//             </button>
+//           </div>
+//         </div>
+
+//         {/* Settings Panel */}
+//         {showSettings && (
+//           <div className="fixed top-4 right-4 bg-white rounded-lg shadow-xl p-6 w-80 z-50">
+//             <h3 className="font-bold text-lg mb-4">Settings</h3>
+            
+//             <div className="space-y-4">
+//               <div>
+//                 <label className="block text-sm font-medium mb-2">Microphone</label>
+//                 <select
+//                   value={selectedAudioInput}
+//                   onChange={(e) => setSelectedAudioInput(e.target.value)}
+//                   className="w-full border rounded px-3 py-2"
+//                 >
+//                   {audioInputs.map((device) => (
+//                     <option key={device.deviceId} value={device.deviceId}>
+//                       {device.label}
+//                     </option>
+//                   ))}
+//                 </select>
+//               </div>
+
+//               <div>
+//                 <label className="block text-sm font-medium mb-2">Camera</label>
+//                 <select
+//                   value={selectedVideoInput}
+//                   onChange={(e) => setSelectedVideoInput(e.target.value)}
+//                   className="w-full border rounded px-3 py-2"
+//                 >
+//                   {videoInputs.map((device) => (
+//                     <option key={device.deviceId} value={device.deviceId}>
+//                       {device.label}
+//                     </option>
+//                   ))}
+//                 </select>
+//               </div>
+//             </div>
+
+//             <button
+//               onClick={() => setShowSettings(false)}
+//               className="mt-4 w-full bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded"
+//             >
+//               Close
+//             </button>
+//           </div>
+//         )}
+//       </div>
+
+//       {/* Connection Status */}
+//       {!isConnected && (
+//         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-4 py-2 rounded-lg">
+//           Connecting...
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+// // Remote Video Component
+// function RemoteVideo({ participant }: { participant: any }) {
+//   const videoRef = useRef<HTMLVideoElement>(null);
+
+//   useEffect(() => {
+//     if (videoRef.current && participant.stream) {
+//       videoRef.current.srcObject = participant.stream;
+//     }
+//   }, [participant.stream]);
+
+//   return (
+//     <div className="relative bg-gray-800 rounded-lg overflow-hidden">
+//       {participant.stream ? (
+//         <video
+//           ref={videoRef}
+//           autoPlay
+//           playsInline
+//           className="w-full h-full object-cover"
+//         />
+//       ) : (
+//         <div className="w-full h-full flex items-center justify-center bg-gray-800">
+//           <div className="text-center text-gray-400">
+//             <div className="w-24 h-24 bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-2">
+//               <span className="text-3xl text-white">👤</span>
+//             </div>
+//             <p>Connecting...</p>
+//           </div>
+//         </div>
+//       )}
+//       <div className="absolute bottom-4 left-4 bg-black/50 text-white px-3 py-1 rounded">
+//         {participant.name}
+//         {!participant.isVideoEnabled && ' (Video Off)'}
+//         {!participant.isAudioEnabled && ' 🔇'}
+//       </div>
+//     </div>
+  // );
   // Timer for interview duration
+  
   useEffect(() => {
     const interval = setInterval(() => {
       setDuration((prev) => prev + 1);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { InterviewRoom } from './components/InterviewRoom';
@@ -9,6 +9,8 @@ import { InterviewerDashboard } from './components/InterviewerDashboard';
 import { FeedbackForm } from './components/FeedbackForm';
 import { HRDashboard } from './components/HRDashboard';
 import { Toaster } from './components/ui/sonner';
+import { httpClient } from './services/httpClient';
+import { toast } from 'sonner';
 
 type Page = 'dashboard' | 'interview' | 'calendar' | 'profile' | 'report' | 'feedback';
 type Role = 'interviewee' | 'interviewer' | 'hr';
@@ -88,13 +90,58 @@ export default function App() {
   const [currentRole, setCurrentRole] = useState<Role>('interviewee');
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [currentInterviewId, setCurrentInterviewId] = useState<string | null>(null);
+  const [backendStatus, setBackendStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
 
-  const handleJoinInterview = (interviewId: string) => {
-    setCurrentInterviewId(interviewId);
-    setCurrentPage('interview');
+  // Check backend connection on mount
+  useEffect(() => {
+    checkBackendConnection();
+  }, []);
+
+  const checkBackendConnection = async () => {
+    try {
+      const response = await httpClient.get('/health');
+      if (response.data.status === 'ok') {
+        setBackendStatus('connected');
+        toast.success('Connected to server');
+      }
+    } catch (error) {
+      setBackendStatus('disconnected');
+      toast.error('Failed to connect to server. Check if backend is running.');
+      console.error('Backend connection error:', error);
+    }
   };
 
-  const handleEndInterview = () => {
+  const handleJoinInterview = async (interviewId: string) => {
+    if (backendStatus === 'disconnected') {
+      toast.error('Cannot join meeting. Server is not available.');
+      return;
+    }
+
+    try {
+      // Create or join meeting on backend
+      await httpClient.post(`/meetings/${interviewId}/join`, {
+        participantId: `user-${Date.now()}`,
+        name: currentRole === 'interviewer' ? 'Interviewer' : 'Candidate',
+      });
+
+      setCurrentInterviewId(interviewId);
+      setCurrentPage('interview');
+    } catch (error: any) {
+      console.error('Failed to join meeting:', error);
+      toast.error('Failed to join meeting. Please try again.');
+    }
+  };
+
+  const handleEndInterview = async () => {
+    if (currentInterviewId) {
+      try {
+        await httpClient.post(`/meetings/${currentInterviewId}/leave`, {
+          participantId: `user-${Date.now()}`,
+        });
+      } catch (error) {
+        console.error('Failed to leave meeting:', error);
+      }
+    }
     setCurrentInterviewId(null);
     setCurrentPage('dashboard');
   };
@@ -128,6 +175,19 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster />
+      
+      {/* Backend Status Indicator */}
+      {backendStatus === 'disconnected' && currentPage !== 'interview' && (
+        <div className="bg-red-600 text-white px-4 py-2 text-center text-sm">
+          ⚠️ Server disconnected. Please start the backend server.
+          <button
+            onClick={checkBackendConnection}
+            className="ml-4 underline hover:no-underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       
       {currentPage !== 'interview' && currentPage !== 'report' && currentPage !== 'feedback' && (
         <Header 
