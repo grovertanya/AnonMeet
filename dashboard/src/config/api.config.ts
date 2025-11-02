@@ -1,6 +1,6 @@
 // config/api.config.ts
 export const API_CONFIG = {
-  baseURL: 'http://localhost:5000/',
+  baseURL: 'https://anonmeet.onrender.com/',
   wsURL: 'ws://localhost:5000',
   timeout: 30000,
   retryAttempts: 3,
