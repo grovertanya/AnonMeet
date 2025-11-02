@@ -1,65 +1,130 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useRef, useState } from "react";
+import { io } from "socket.io-client";
+
+export default function Page() {
+  const [roomId, setRoomId] = useState("default-room");
+  const [joined, setJoined] = useState(false);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const peerRef = useRef<RTCPeerConnection | null>(null);
+  const socketRef = useRef<any>(null);
+
+  useEffect(() => {
+    // initialize socket only once
+    socketRef.current = io({
+      path: "/api/socket",
+    });
+
+    socketRef.current.on("connect", () => {
+      console.log("Socket connected:", socketRef.current.id);
+    });
+
+    // handle signaling messages
+    socketRef.current.on("signal", async (data: any) => {
+      if (!peerRef.current) return;
+      if (data.signal.type === "offer") {
+        await peerRef.current.setRemoteDescription(data.signal);
+        const answer = await peerRef.current.createAnswer();
+        await peerRef.current.setLocalDescription(answer);
+        socketRef.current.emit("signal", {
+          roomId,
+          signal: answer,
+        });
+      } else if (data.signal.type === "answer") {
+        await peerRef.current.setRemoteDescription(data.signal);
+      } else if (data.signal.candidate) {
+        await peerRef.current.addIceCandidate(data.signal.candidate);
+      }
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, []);
+
+  const joinRoom = async () => {
+    if (!socketRef.current) return;
+    socketRef.current.emit("join-room", roomId);
+    setJoined(true);
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true,
+    });
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = stream;
+    }
+
+    const peer = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
+    peerRef.current = peer;
+
+    stream.getTracks().forEach((track) => peer.addTrack(track, stream));
+
+    peer.ontrack = (event) => {
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+      }
+    };
+
+    peer.onicecandidate = (event) => {
+      if (event.candidate) {
+        socketRef.current.emit("signal", {
+          roomId,
+          signal: { candidate: event.candidate },
+        });
+      }
+    };
+
+    const offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+    socketRef.current.emit("signal", {
+      roomId,
+      signal: offer,
+    });
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="flex flex-col items-center p-6 space-y-4">
+      <h1 className="text-2xl font-semibold">AnonMeet 🎥</h1>
+
+      {!joined ? (
+        <div className="flex space-x-2">
+          <input
+            value={roomId}
+            onChange={(e) => setRoomId(e.target.value)}
+            className="border p-2 rounded"
+            placeholder="Room ID"
+          />
+          <button
+            onClick={joinRoom}
+            className="bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Join
+          </button>
+        </div>
+      ) : (
+        <p className="text-gray-600">Joined room: {roomId}</p>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 mt-4">
+        <video
+          ref={localVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className="rounded-xl border w-[320px] h-[240px]"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className="rounded-xl border w-[320px] h-[240px]"
+        />
+      </div>
     </div>
   );
 }
