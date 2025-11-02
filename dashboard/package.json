@@ -1,5 +1,4 @@
 {
-{
       "name": "Interview Platform Dashboard",
       "version": "0.1.0",
       "private": true,
@@ -54,11 +53,6 @@
             "vite": "6.3.5"
       },
       "scripts": {
-            "dev": "vite",
-            "build": "vite build"
-      }
-}
-
             "dev": "vite",
             "build": "vite build"
       }
